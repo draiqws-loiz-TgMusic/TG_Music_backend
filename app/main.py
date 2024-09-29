@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers import auth
 
 app = FastAPI()
 
@@ -16,10 +17,8 @@ app.add_middleware(
     allow_headers=["*"],  # Разрешаем любые заголовки
 )
 
-@app.get("/")
+@app.get("/s")
 def read_root():
     return {"message": "Welcome to the music service backend!"}
 
-@app.get("/api/data")
-def get_data():
-    return {"message": "This is a response from the backend!"}
+app.include_router(auth.router)
