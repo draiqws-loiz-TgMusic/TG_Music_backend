@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from contextlib import contextmanager
 import sqlite3
+from app.routers.schemas import Music_play
 
 router = APIRouter()
 
@@ -27,14 +28,14 @@ def create_table(cur):
     )
 
 @router.post("/add-music/")
-async def add_music(music: str, author: str, name: str, genre: str):
+async def add_music(music: Music_play):
     try:
         with get_db_connection() as (con, cur):
             create_table(cur)
             cur.execute('''
                         INSERT INTO music(music, author, name, genre)
                         VALUES (?, ?, ?, ?);
-                        ''', (music, author, name, genre))
+                        ''', (music.music, music.author, music.name, music.genre))
         return {"status": "Music added successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -44,18 +45,26 @@ async def get_music(genre: str):
     try:
         with get_db_connection() as (con, cur):
             cur.execute('''
-                        SELECT * FROM music WHERE genre = ?;
-                        ''', (genre,))
-            music = cur.fetchall()
-        return {"music": music}
+                        SELECT * 
+                        FROM music
+                        WHERE genre = ?;
+                        ''',(genre, ))
+            music = list(cur.fetchall())
+        if not music:
+            raise HTTPException(status_code=404, detail="No music found")
+        return music
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
 
 @router.get("/audio-player", response_class=HTMLResponse)
 async def audio_player():
     try:
+        with open("app/templates/downloads.html", "r") as download:
+            html_content_1 = download.read()
         with open("app/templates/audio_player.html", "r") as file:
             html_content = file.read()
-        return HTMLResponse(content=html_content)
+        return HTMLResponse(content=html_content),HTMLResponse(content=html_content_1)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
