@@ -19,21 +19,26 @@ def get_db_connection():
     try:
         cur = con.cursor()
         yield con, cur
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database connection error: {str(e)}")
     finally:
         con.commit()
         con.close()
 
 def create_users_table(cur):
-    cur.execute(
-        '''
-        CREATE TABLE IF NOT EXISTS Users(
-            id TEXT PRIMARY KEY,
-            login TEXT UNIQUE,
-            password TEXT,
-            JWTByLogin TEXT
-        );
-        '''
-    )
+    try:
+        cur.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS Users(
+                id TEXT PRIMARY KEY,
+                login TEXT UNIQUE,
+                password TEXT,
+                JWTByLogin TEXT
+            );
+            '''
+        )
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Error creating table: {str(e)}")
 
 def generate_token(username):
     payload = {
@@ -64,7 +69,7 @@ async def new_user(user: UserRegistration):
                 raise HTTPException(status_code=400, detail="User already exists")
 
             new_uuid = str(uuid4())
-            JWTByLogin_token = generate_token(login)
+            JWTByLogin_token = generate_token([login, password])
             cur.execute(
                 "INSERT INTO Users (id, login, password, JWTByLogin) VALUES (?, ?, ?, ?)", 
                 (new_uuid, login, password, JWTByLogin_token)
@@ -87,7 +92,7 @@ async def old_user(user: UserRegistration):
                 raise HTTPException(status_code=400, detail="User doesn`t registr")
             # return {password, db_password}
             if str(password) == str(db_password):
-                return {"status": "Successfully logged in", "token": db_JWT}
+                return {"status": "Successfully logged in", "token": db_JWT, "login": login}
             else:
                 raise HTTPException(status_code=401, detail="Incorrect password")
     except Exception as e:
